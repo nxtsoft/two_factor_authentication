@@ -1,6 +1,10 @@
 require 'devise/version'
 
 class Devise::TwoFactorAuthenticationController < DeviseController
+  LOCKED_OUT_NOTICE = { flash: {
+          notice: 'your account has been locked, please contact an administrator to unlock it'
+        }
+  }
   prepend_before_action :authenticate_scope!
   before_action :prepare_and_validate, :handle_two_factor_authentication
 
@@ -62,8 +66,7 @@ class Devise::TwoFactorAuthenticationController < DeviseController
     set_flash_message :alert, :attempt_failed, now: true
 
     if resource.max_login_attempts?
-      sign_out(resource)
-      render :max_login_attempts_reached
+      locked_out
     else
       render :show
     end
@@ -73,12 +76,16 @@ class Devise::TwoFactorAuthenticationController < DeviseController
     self.resource = send("current_#{resource_name}")
   end
 
+  def locked_out
+    sign_out(resource)
+    redirect_to(main_app.root_path, LOCKED_OUT_NOTICE)
+  end
+
   def prepare_and_validate
     redirect_to :root and return if resource.nil?
     @limit = resource.max_login_attempts
     if resource.max_login_attempts?
-      sign_out(resource)
-      render :max_login_attempts_reached and return
+      locked_out
     end
   end
 end
